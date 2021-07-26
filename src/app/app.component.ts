@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import Quagga from 'quagga';
 import * as $ from 'jquery';
+import { ImageCapture } from 'image-capture';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,11 @@ export class AppComponent implements OnInit {
   value: string;
   isError = false;
   scannedVinNumber;
+  imageCapture;
+  theStream;
+  imageUrl;
+  scanAgain = false;
+  noBarcodeFound = false;
 
   onError(error) {
     console.error(error);
@@ -43,7 +49,59 @@ export class AppComponent implements OnInit {
   constructor() {}
 
   ngOnInit() {
-    this.load_quagga();
+    this.onGetUserMediaButtonClick();
+  }
+
+  onGetUserMediaButtonClick() {
+    navigator.mediaDevices
+      .getUserMedia({ video: true })
+      .then((mediaStream) => {
+        document.querySelector('video').srcObject = mediaStream;
+
+        const track = mediaStream.getVideoTracks()[0];
+        this.imageCapture = new ImageCapture(track);
+      })
+      .catch((error) => console.log(error));
+  }
+
+  loadVideoForImageStream() {
+    navigator.mediaDevices.getUserMedia({ video: true }).then((mediaStream) => {
+      const track: any = mediaStream.getVideoTracks()[0];
+      let zoom: any = document.querySelector('#barcode-scanner');
+      const capabilities: any = track.getCapabilities();
+      // Check whether zoom is supported or not.
+      // if (!capabilities.zoom) {
+      //   return;
+      // }
+      track.applyConstraints({ advanced: [{ zoom: zoom.value }] });
+
+      this.imageCapture = new ImageCapture(track);
+    });
+  }
+
+  detectBarcodeFromCanvas() {
+    var last_result = [];
+    const self = this;
+    Quagga.decodeSingle(
+      {
+        decoder: {
+          readers: ['code_39_reader', 'code_39_vin_reader', 'codabar_reader'],
+        },
+        locate: true,
+        src: this.imageUrl,
+      },
+      function (result) {
+        if(result) {
+          if (result.codeResult !== undefined) {
+            self.scannedVinNumber = result.codeResult.code;
+          } else {
+            self.scanAgain = true;
+          }
+        } else {
+          self.noBarcodeFound = true;
+        }
+      }
+    );
   }
 
   load_quagga() {
@@ -78,7 +136,7 @@ export class AppComponent implements OnInit {
 
             type: 'LiveStream',
             numOfWorkers: navigator.hardwareConcurrency,
-            target: document.querySelector('#barcode-scanner'),
+            target: document.querySelector('#takePhotoCanvas'),
           },
           decoder: {
             readers: ['code_39_reader', 'code_39_vin_reader', 'codabar_reader'],
@@ -94,10 +152,48 @@ export class AppComponent implements OnInit {
           $('canvas').css('height', 0);
           $('video').css('width', '95vw');
           $('video').css('borderRadius', '2%');
-          self.getStream();
+          // self.getStream();
         }
       );
     }
+  }
+
+  take_picture() {
+    this.scanAgain = false;
+    this.imageCapture
+      .takePhoto()
+      .then((blob) => {
+        this.imageUrl = URL.createObjectURL(blob);
+        return createImageBitmap(blob);
+      })
+      .then((imageBitmap) => {
+        const canvas = document.querySelector('#takePhotoCanvas');
+        this.drawCanvas(canvas, imageBitmap);
+        this.detectBarcodeFromCanvas();
+      })
+      .catch((error) => console.log(error));
+  }
+
+  drawCanvas(canvas, img) {
+    canvas.width = getComputedStyle(canvas).width.split('px')[0];
+    canvas.height = getComputedStyle(canvas).height.split('px')[0];
+    let ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+    let x = (canvas.width - img.width * ratio) / 2;
+    let y = (canvas.height - img.height * ratio) / 2;
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    canvas
+      .getContext('2d')
+      .drawImage(
+        img,
+        0,
+        0,
+        img.width,
+        img.height,
+        x,
+        y,
+        img.width * ratio,
+        img.height * ratio
+      );
   }
 
   getUserMedia(options, successCallback, failureCallback) {
@@ -106,8 +202,6 @@ export class AppComponent implements OnInit {
       return api.bind(navigator)(options, successCallback, failureCallback);
     }
   }
-
-  theStream;
 
   getStream() {
     if (!navigator.getUserMedia) {
@@ -119,6 +213,7 @@ export class AppComponent implements OnInit {
       video: true,
     };
 
+    const self = this;
     this.getUserMedia(
       constraints,
       function (stream) {
@@ -130,7 +225,7 @@ export class AppComponent implements OnInit {
             stream
           );
         }
-        this.theStream = stream;
+        self.theStream = stream;
       },
       function (err) {
         alert('Error: ' + err);

@@ -1,6 +1,21 @@
 <div class="scanner-container p-2">
   <h1 class="mt-3 mb-5 text-bold">VIN BARCODE SCANNER</h1>
-  <div id="barcode-scanner"></div>
+  <video id="barcode-scanner" autoplay="true"></video>
+  <button
+    class="reload btn btn-block-lg btn-primary mt-3 mx-auto"
+    (click)="take_picture()"
+  >
+    Take picture
+  </button>
+
+  <h4 *ngIf="scanAgain" class="text-danger mt-5">
+    Barcode not scanned properly. Please take a picture again
+  </h4>
+
+  <h4 *ngIf="noBarcodeFound" class="text-danger mt-5">No barcode found!</h4>
+  <canvas id="takePhotoCanvas"></canvas>
+</div>
+
 <div *ngIf="scannedVinNumber" class="conditional-display">
   <h3 class="mt-2">
     Detected VIN number:
@@ -12,7 +27,6 @@
   >
     Scan New Barcode
   </button>
-</div>
 </div>
 
 <!--
