@@ -1,0 +1,18 @@
+.scanner-container {
+  h1 {
+    text-align: center;
+  }
+  .barcode-scanner {
+    .vin-number {
+      font-size: 24px;
+      font-weight: bold;
+    }
+  }
+
+  .conditional-display {
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: center;
+    align-items: center;
+  }
+}
